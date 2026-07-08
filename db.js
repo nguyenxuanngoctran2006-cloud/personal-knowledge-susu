@@ -5,22 +5,36 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Câu lệnh tạo bảng tự động nếu bảng chưa tồn tại
-const createTableQuery = `
-  CREATE TABLE IF NOT EXISTS notes (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    content TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
-`;
+// Hàm khởi tạo các bảng dữ liệu
+const initDatabase = async () => {
+  try {
+    // 1. Tạo bảng quản lý thư mục (Folders) trước
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS folders (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        parent_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-pool.query(createTableQuery, (err, res) => {
-  if (err) {
-    console.error('❌ Tạo bảng thất bại:', err.message);
-  } else {
-    console.log('✅ Bảng "notes" đã sẵn sàng trong Database!');
+    // 2. Cập nhật hoặc tạo bảng notes (Ghi chú) có liên kết với bảng folders
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT,
+        folder_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    console.log('✅ Cấu trúc Database cấu trúc cây đã sẵn sàng trên Supabase!');
+  } catch (err) {
+    console.error('❌ Cấu trúc Database thất bại:', err.message);
   }
-});
+};
+
+initDatabase();
 
 module.exports = pool;

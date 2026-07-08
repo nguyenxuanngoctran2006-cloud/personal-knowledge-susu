@@ -46,6 +46,57 @@ app.delete('/api/notes/:id', async (req, res) => {
     }
 });
 
+// ==========================================
+// GIAI ĐOẠN 2: API QUẢN LÝ THƯ MỤC (FOLDERS)
+// ==========================================
+
+// 1. API TẠO THƯ MỤC MỚI
+app.post('/api/folders', async (req, res) => {
+    try {
+        const { name, parent_id } = req.body; 
+        // parent_id có thể là id của thư mục cha, hoặc null nếu là thư mục gốc ngoài cùng
+        
+        const newFolder = await pool.query(
+            "INSERT INTO folders (name, parent_id) VALUES ($1, $2) RETURNING *",
+            [name, parent_id || null]
+        );
+        res.json({ message: "Tạo thư mục thành công!", data: newFolder.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. API LẤY TẤT CẢ THƯ MỤC
+app.get('/api/folders', async (req, res) => {
+    try {
+        const allFolders = await pool.query("SELECT * FROM folders ORDER BY id ASC");
+        res.json(allFolders.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. API TÌM KIẾM GHI CHÚ THEO TỪ KHÓA (SEARCH)
+app.get('/api/search', async (req, res) => {
+    try {
+        const { keyword } = req.query; // Lấy từ khóa người dùng gửi lên qua link (ví dụ: ?keyword=Node)
+        
+        if (!keyword) {
+            return res.status(400).json({ error: "Vui lòng nhập từ khóa để tìm kiếm!" });
+        }
+
+        // Câu lệnh SQL sử dụng ILIKE để tìm kiếm không phân biệt chữ hoa/chữ thường
+        const searchResults = await pool.query(
+            "SELECT * FROM notes WHERE title ILIKE $1 OR content ILIKE $1 ORDER BY id DESC",
+            [`%${keyword}%`]
+        );
+
+        res.json(searchResults.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server đang chạy cực mượt tại: http://localhost:${PORT}`);
 });
